@@ -53,12 +53,17 @@ for i in range(N-tup+1, N):
 ##########################
 # B is initialized based on the training set.
 ##########################
-sample_sum = sum([len(clusters[i]) for i in clusters.keys()])
-# tmp_stat is not of M possibilities
-tmp_stat = [0.0000001] * M
-for i in clusters.keys():
-    tmp_stat[i] = len(clusters[i])/(1.0*sample_sum)
-B = [tmp_stat] * N
+#sample_sum = sum([len(clusters[i]) for i in clusters.keys()])
+## tmp_stat is not of M possibilities
+#tmp_stat = [0.0000001] * M
+#for i in clusters.keys():
+#    tmp_stat[i] = len(clusters[i])/(1.0*sample_sum)
+#B = [tmp_stat] * N
+
+##########################
+# B is of same probability
+##########################
+B = [[1.0/M] * M] * N
 
 pi = [1.0 / N] * N
 codebook = ghmm.IntegerRange(0, M)
