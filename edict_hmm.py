@@ -10,8 +10,8 @@
 
 import sys
 import os
-sys.path.append(os.path.abspath("/home/magodo/code/python/speech/VQ"))
-sys.path.append(os.path.abspath("/home/magodo/code/python/Edict/working/edict/lib/speech"))
+sys.path.append(os.path.abspath("VQ"))
+sys.path.append(os.path.abspath("speech"))
 
 import mfcc
 import waveio
@@ -19,10 +19,11 @@ import lbg
 import ghmm
 import pickle
 from redirector import stderr_redirector
+import time
 
 # Model target
 targets = ["apple", "beef", "egg", "lemon", "mushroom", "noodle", "orange", "spaghetti", "spam", "strawberry", "watermelon" ]
-target = targets[4]
+target = targets[-2]
 # Number of state variable(N) and observation symbols(M)
 N = 6
 M = 256
@@ -33,7 +34,7 @@ tup = 2
 # Load VQ
 #~~~~~~~~~~~~~~~~~~~~~~
 print "Begin load VQ..."
-with open("/home/magodo/code/python/speech/VQ/VQ.pkl"+"-%s"%M, "r") as f:
+with open("VQ/VQ.pkl"+"-%s"%M, "r") as f:
     mu, clusters = pickle.load(f)
 print "Finish load VQ."
 
@@ -73,6 +74,7 @@ print "Finish initialize model."
 #~~~~~~~~~~~~~~~~~~~~~~
 # Train model
 #~~~~~~~~~~~~~~~~~~~~~~
+print "Begin load target: %s and MFCC extract..."%(target)
 # Load two samples for strawberry and calculate their MFCC
 # Create sample_seqs(List of lists of VQed MFCC)
 samples = []
@@ -82,7 +84,8 @@ def feature_fetch(target, dirname, fnames):
             with open(os.path.join(dirname, fname)) as f:
                 signal, FS = waveio.wave_from_file(f)
                 samples.append(mfcc.mfcc(signal, FS))
-os.path.walk("/home/magodo/code/voiceMaterial/word", feature_fetch, target)
+os.path.walk("voiceMaterial", feature_fetch, target)
+print "Finish load target: %s and MFCC extract."%(target)
 
 sample_seqs = []
 for sample in samples:
@@ -94,8 +97,10 @@ for sample in samples:
 sample_seqset = ghmm.SequenceSet(codebook, sample_seqs)
 
 print "Begin train model..."
+overhead = time.time()
 model.baumWelch(sample_seqset, 1, 0.0001)
-print "Finish train model."
+overhead = (time.time() - overhead)
+print "Finish train model. Taking %f sec"%overhead
 
 #~~~~~~~~~~~~~~~~~~~~~~
 # Test model
@@ -115,7 +120,7 @@ def collect_mfcc(arg, dirname, fnames):
             for point in feature:
                 feature_collection[fname].append(lbg.cluster_point(point, mu))
 
-os.path.walk(top = "/home/magodo/code/voiceMaterial/word", func = collect_mfcc, arg = None)
+os.path.walk(top = "voiceMaterial", func = collect_mfcc, arg = None)
 print "    Finish get samples..."
 
 
@@ -123,14 +128,18 @@ print "    Finish get samples..."
 f = open("/dev/null", 'w')
 with stderr_redirector(f):
     test_result = {}
+    overhead_result = {}
     for sample in feature_collection.keys():
+        overhead = time.time()
         test_result[sample] = model.loglikelihood(ghmm.EmissionSequence(codebook, feature_collection[sample]))
+        overhead_result[sample] = (time.time() - overhead)
 
 # Iterate and print each sample's log likelihood
 test_result = sorted(test_result.items(), key = lambda item: item[1])
 for sample in test_result:
     print "~~~~~~~~~~~~~~~~~~~~~~~~~"
-    print "File:              %s" %sample[0]
-    print "log loglikelihood: %f"%sample[1]
+    print u"文件:              %s" %sample[0]
+    print u"概率(log): %f"%sample[1]
+    print u"(耗时 %f秒)"%overhead_result[sample[0]]
 
 print "Finish test model..."
